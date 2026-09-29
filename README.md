@@ -84,3 +84,4 @@ Adjust hybrid weights and local data paths in [config.py](./config.py). The engi
 ## Dataset and privacy
 
 MovieLens 100K is provided by GroupLens Research. Review the [GroupLens dataset page](https://grouplens.org/datasets/movielens/100k/) and its terms before use. User demographic fields are sourced from the public dataset; the project does not collect credentials or send data to a hosted service. History is stored locally in `data/history/recommendation_history.db`.
+<img width="1204" height="991" alt="image" src="https://github.com/user-attachments/assets/4621def2-733d-4f82-9479-a19f57041a7e" />
