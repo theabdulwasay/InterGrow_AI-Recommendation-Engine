@@ -2,6 +2,8 @@ import numpy as np
 from scipy.sparse import csr_matrix
 from sklearn.metrics.pairwise import cosine_similarity
 
+from src.models.collaborative_utils import center_ratings
+
 
 class UserCollaborativeRecommender:
     def __init__(
@@ -12,17 +14,7 @@ class UserCollaborativeRecommender:
         self.item_ids = item_ids
         self.user_positions = {user_id: i for i, user_id in enumerate(user_ids)}
         self.item_positions = {item_id: i for i, item_id in enumerate(item_ids)}
-        self.means = np.asarray(matrix.sum(axis=1)).ravel() / np.maximum(
-            np.asarray((matrix != 0).sum(axis=1)).ravel(), 1
-        )
-        centered = matrix.tolil(copy=True)
-        for user_index in range(centered.shape[0]):
-            if centered.rows[user_index]:
-                centered.data[user_index] = [
-                    value - self.means[user_index]
-                    for value in centered.data[user_index]
-                ]
-        self.centered = centered.tocsr()
+        self.centered, self.means = center_ratings(matrix)
         self.similarity = cosine_similarity(self.centered, dense_output=True)
 
     def score_for_user(self, user_id: int, exclude: set[int]) -> dict[int, float]:
@@ -31,8 +23,6 @@ class UserCollaborativeRecommender:
             return {}
         similarities = self.similarity[user_position].copy()
         similarities[user_position] = 0
-        user_ratings = self.matrix.getrow(user_position)
-        seen_positions = set(user_ratings.indices.tolist())
         scores: dict[int, float] = {}
         for item_position, item_id in enumerate(self.item_ids):
             if item_id in exclude:

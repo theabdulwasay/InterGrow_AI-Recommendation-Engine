@@ -61,11 +61,13 @@ with tabs[2]:
 
 with tabs[3]:
     if st.button("Load recommendation history"):
-        st.session_state["history_data"] = api_get(
+        history_data = api_get(
             f"/history/{int(user_id)}", {"limit": 20}
         )
+        st.session_state["history_data"] = history_data
+        st.session_state["history_user_id"] = int(user_id) if history_data else None
     history_data = st.session_state.get("history_data")
-    if history_data:
+    if history_data and st.session_state.get("history_user_id") == int(user_id):
         if not history_data["entries"]:
             st.info("There is no saved recommendation history for this user.")
         for entry in history_data["entries"]:

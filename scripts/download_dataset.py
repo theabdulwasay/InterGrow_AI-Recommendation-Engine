@@ -1,9 +1,13 @@
 from io import BytesIO
 from pathlib import Path
+import os
+import ssl
+from urllib.error import URLError
 from urllib.request import urlopen
 from zipfile import ZipFile
 
 import pandas as pd
+import truststore
 
 from config import RAW_DATA_DIR
 
@@ -14,7 +18,7 @@ GENRES = [
     "Action",
     "Adventure",
     "Animation",
-    "Children",
+    "Children's",
     "Comedy",
     "Crime",
     "Documentary",
@@ -35,8 +39,17 @@ GENRES = [
 def download_and_prepare(destination: Path = RAW_DATA_DIR) -> tuple[Path, Path, Path]:
     destination.mkdir(parents=True, exist_ok=True)
     print(f"Downloading MovieLens 100K from {DATASET_URL} ...")
-    with urlopen(DATASET_URL, timeout=60) as response:
-        archive_bytes = response.read()
+    try:
+        tls_context = truststore.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+        ca_bundle = os.getenv("SSL_CERT_FILE") or os.getenv("REQUESTS_CA_BUNDLE")
+        if ca_bundle:
+            tls_context.load_verify_locations(cafile=ca_bundle)
+        with urlopen(DATASET_URL, timeout=60, context=tls_context) as response:
+            archive_bytes = response.read()
+    except URLError as error:
+        raise RuntimeError(
+            "MovieLens download failed. Check internet access and trusted TLS certificates."
+        ) from error
 
     with ZipFile(BytesIO(archive_bytes)) as archive:
         movies = pd.read_csv(
@@ -61,6 +74,7 @@ def download_and_prepare(destination: Path = RAW_DATA_DIR) -> tuple[Path, Path, 
             archive.open("ml-100k/u.user"),
             sep="|",
             header=None,
+            dtype={"ZipCode": str},
             names=["UserID", "Age", "Gender", "Occupation", "ZipCode"],
         )
 

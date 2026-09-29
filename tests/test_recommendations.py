@@ -1,24 +1,47 @@
 import pandas as pd
 from scipy.sparse import csr_matrix
 
-from src.evaluation.metrics import ndcg_at_k, precision_at_k, recall_at_k
+from src.evaluation.metrics import mae, ndcg_at_k, precision_at_k, recall_at_k, rmse
+from src.models.collaborative_ensemble import CollaborativeEnsemble
+from src.models.collaborative_item import ItemCollaborativeRecommender
 from src.models.content_based import ContentBasedRecommender
 from src.models.hybrid import HybridRecommender
 from src.models.collaborative_user import UserCollaborativeRecommender
+from src.models.matrix_factorization import MatrixFactorizationRecommender
 from src.profiling.user_profile import build_user_profile
 from src.recommender.ranking import rank_recommendations
 
 
 def test_content_similarity_and_hybrid_exclude_seen_movies():
-    content = ContentBasedRecommender([10, 20, 30], csr_matrix([[1, 0.8, 0], [0.8, 1, 0], [0, 0, 1]]))
-    collaborative = UserCollaborativeRecommender(
-        csr_matrix([[5, 4, 0], [5, 0, 4], [0, 4, 5]]),
-        [1, 2, 3],
-        [10, 20, 30],
+    content = ContentBasedRecommender(
+        [10, 20, 30, 40],
+        csr_matrix(
+            [[1, 0.8, 0, 0], [0.8, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+        ),
     )
+    matrix = csr_matrix(
+        [
+            [5, 4, 0, 0],
+            [5, 0, 4, 1],
+            [0, 4, 5, 2],
+            [1, 2, 0, 5],
+            [3, 0, 2, 4],
+        ]
+    )
+    user_model = UserCollaborativeRecommender(
+        matrix, [1, 2, 3, 4, 5], [10, 20, 30, 40]
+    )
+    item_model = ItemCollaborativeRecommender(
+        matrix, [1, 2, 3, 4, 5], [10, 20, 30, 40]
+    )
+    factor_model = MatrixFactorizationRecommender(
+        matrix, [1, 2, 3, 4, 5], [10, 20, 30, 40], factors=2
+    )
+    collaborative = CollaborativeEnsemble([user_model, item_model, factor_model])
     hybrid = HybridRecommender(content, collaborative)
     assert content.similar_items(10, 1) == [(20, 0.8)]
     assert 10 not in hybrid.recommend(1, [(10, 5.0), (20, 4.0)], {10, 20})
+    assert 30 in collaborative.score_for_user(1, {10, 20})
 
 
 def test_profile_and_ranking_are_deterministic():
@@ -41,3 +64,5 @@ def test_ranking_metrics():
     assert precision_at_k(relevant, ranked, 2) == 0.5
     assert recall_at_k(relevant, ranked, 2) == 0.5
     assert 0 < ndcg_at_k(relevant, ranked, 3) < 1
+    assert mae([3.0, 5.0], [4.0, 4.0]) == 1.0
+    assert rmse([3.0, 5.0], [4.0, 4.0]) == 1.0

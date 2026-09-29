@@ -1,5 +1,6 @@
 from fastapi.testclient import TestClient
 
+import api.main as api_main
 import api.routes.recommend as recommend_route
 from api.main import app
 
@@ -29,3 +30,19 @@ def test_recommend_endpoint_reports_missing_dataset(monkeypatch):
     response = TestClient(app).get("/recommend/42")
     assert response.status_code == 503
     assert "dataset setup" in response.json()["detail"]
+
+
+def test_health_reports_missing_dataset(monkeypatch):
+    def missing_engine():
+        raise FileNotFoundError("dataset required")
+
+    monkeypatch.setattr(api_main, "get_engine", missing_engine)
+    response = TestClient(app).get("/health")
+    assert response.status_code == 200
+    assert response.json() == {"status": "dataset required", "dataset_ready": False}
+
+
+def test_api_root_redirects_to_docs():
+    response = TestClient(app).get("/", follow_redirects=False)
+    assert response.status_code == 307
+    assert response.headers["location"] == "/docs"

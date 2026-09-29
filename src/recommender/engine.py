@@ -3,6 +3,7 @@ from config import (
     CONTENT_WEIGHT,
     DATA_DIR,
     DEFAULT_RECOMMENDATION_COUNT,
+    SVD_FACTORS,
 )
 from src.data_processing.cleaner import clean_movies, clean_ratings
 from src.data_processing.feature_engineering import (
@@ -13,8 +14,11 @@ from src.data_processing.loader import load_movies, load_ratings, load_users
 from src.data_processing.matrix_builder import build_user_item_matrix
 from src.models.cold_start import popularity_scores
 from src.models.collaborative_user import UserCollaborativeRecommender
+from src.models.collaborative_item import ItemCollaborativeRecommender
+from src.models.collaborative_ensemble import CollaborativeEnsemble
 from src.models.content_based import ContentBasedRecommender
 from src.models.hybrid import HybridRecommender
+from src.models.matrix_factorization import MatrixFactorizationRecommender
 from src.profiling.user_profile import build_user_profile
 from src.recommender.ranking import rank_recommendations
 
@@ -25,11 +29,15 @@ class RecommendationEngine:
         movies_path = data_dir / "raw" / "movies.csv"
         ratings_path = data_dir / "raw" / "ratings.csv"
         users_path = data_dir / "raw" / "users.csv"
-        missing = [path.name for path in (movies_path, ratings_path, users_path) if not path.exists()]
+        missing = [
+            path.name
+            for path in (movies_path, ratings_path, users_path)
+            if not path.exists()
+        ]
         if missing:
             raise FileNotFoundError(
                 f"Dataset files are missing ({', '.join(missing)}). "
-                "Run `python scripts/download_dataset.py` first."
+                "Run `python -m scripts.download_dataset` first."
             )
         self.movies = clean_movies(load_movies(movies_path))
         self.ratings = clean_ratings(load_ratings(ratings_path))
@@ -40,10 +48,26 @@ class RecommendationEngine:
         similarity = build_content_similarity(features)
         self.content = ContentBasedRecommender(movie_ids, similarity)
         matrix, user_ids, item_ids = build_user_item_matrix(self.ratings)
-        self.collaborative = UserCollaborativeRecommender(matrix, user_ids, item_ids)
+        self.user_collaborative = UserCollaborativeRecommender(
+            matrix, user_ids, item_ids
+        )
+        self.item_collaborative = ItemCollaborativeRecommender(
+            matrix, user_ids, item_ids
+        )
+        self.matrix_factorization = MatrixFactorizationRecommender(
+            matrix, user_ids, item_ids, factors=SVD_FACTORS
+        )
+        self.collaborative = CollaborativeEnsemble(
+            [
+                self.user_collaborative,
+                self.item_collaborative,
+                self.matrix_factorization,
+            ]
+        )
         self.hybrid = HybridRecommender(
             self.content, self.collaborative, CONTENT_WEIGHT, COLLABORATIVE_WEIGHT
         )
+
     def recommend(self, user_id: int, limit: int = DEFAULT_RECOMMENDATION_COUNT):
         if limit < 1 or limit > 100:
             raise ValueError("limit must be between 1 and 100")

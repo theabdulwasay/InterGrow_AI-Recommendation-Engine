@@ -1,6 +1,7 @@
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, HTTPException
+from fastapi.responses import RedirectResponse
 
 from api.dependencies import get_engine, initialize_service
 from api.routes import history, profile, recommend, similar
@@ -23,6 +24,11 @@ app.include_router(recommend.router)
 app.include_router(similar.router)
 app.include_router(profile.router)
 app.include_router(history.router)
+
+
+@app.get("/", include_in_schema=False)
+def root() -> RedirectResponse:
+    return RedirectResponse(url="/docs")
 
 
 @app.get("/health", response_model=HealthResponse, tags=["service"])

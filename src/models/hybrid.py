@@ -1,4 +1,4 @@
-from src.models.collaborative_user import UserCollaborativeRecommender
+from src.models.collaborative_ensemble import CollaborativeModel
 from src.models.content_based import ContentBasedRecommender
 
 
@@ -16,7 +16,7 @@ class HybridRecommender:
     def __init__(
         self,
         content: ContentBasedRecommender,
-        collaborative: UserCollaborativeRecommender,
+        collaborative: CollaborativeModel,
         content_weight: float = 0.5,
         collaborative_weight: float = 0.5,
     ) -> None:

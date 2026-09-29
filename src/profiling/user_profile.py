@@ -27,11 +27,19 @@ def build_user_profile(
         "favorite_genres": [],
     }
     if not user_row.empty:
+        user = user_row.iloc[0]
         profile.update(
             {
-                key.lower(): value
-                for key, value in user_row.iloc[0].to_dict().items()
-                if key != "UserID"
+                "age": int(user["Age"]) if pd.notna(user["Age"]) else None,
+                "gender": str(user["Gender"]) if pd.notna(user["Gender"]) else None,
+                "occupation": (
+                    str(user["Occupation"])
+                    if pd.notna(user["Occupation"])
+                    else None
+                ),
+                "zipcode": (
+                    str(user["ZipCode"]) if pd.notna(user["ZipCode"]) else None
+                ),
             }
         )
 

@@ -1,13 +1,16 @@
 from config import DATA_DIR
 from src.data_processing.cleaner import clean_ratings
 from src.data_processing.loader import load_ratings
+from src.evaluation.metrics import mae, rmse
 
 
 def main() -> None:
     ratings = clean_ratings(load_ratings(DATA_DIR / "raw" / "ratings.csv"))
     global_mean = float(ratings["Rating"].mean())
-    baseline_mae = float((ratings["Rating"] - global_mean).abs().mean())
-    baseline_rmse = float(((ratings["Rating"] - global_mean) ** 2).mean() ** 0.5)
+    actual = ratings["Rating"].astype(float).tolist()
+    predicted = [global_mean] * len(actual)
+    baseline_mae = mae(actual, predicted)
+    baseline_rmse = rmse(actual, predicted)
     print("Global-mean rating baseline (reference only; not a held-out model benchmark)")
     print(f"Ratings: {len(ratings):,}")
     print(f"MAE: {baseline_mae:.4f}")
